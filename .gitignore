@@ -1,0 +1,4 @@
+out-file.c
+bin/
+*.dSYM/
+*.bin
