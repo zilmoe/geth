@@ -81,7 +81,8 @@ void preprocess_contracts(File_s *file_s)
   // 8. we can add some function checking later...
 
   // init structures
-  Stack *stack = init();
+  Stack *req_stack = init();
+  Stack *ens_stack = init();
   char *new_file = malloc(MAX_FILE_LENGTH * 2);
   int new_file_i = 0;
 
@@ -109,21 +110,32 @@ void preprocess_contracts(File_s *file_s)
 	itm[str_len - 1] = '\0';
 	
 	// store what comes after the requires
-	// printf("Storing %s\n", itm);
-	push(stack, itm);
+	push(req_stack, itm);
 
 	// increment i so we don't keep the comment
 	i += str_len - 1;
-      }
-      if (strncmp(&file_s->buf[i], "//@ensures", strlen("//@ensures")) == 0) {
+      } else if (strncmp(&file_s->buf[i], "//@ensures", strlen("//@ensures")) == 0) {
 	ensures_cnt++;
+
+	i += 10; // is this right?
+
+	int str_len = strncnt(&file_s->buf[i], '\n') + 1; // for null terminator
+	char *itm = malloc(str_len); // @118
+	strncpy(itm, &file_s->buf[i], str_len);
+	itm[str_len - 1] = '\0';
+
+	// store what comes after the ensures
+	push(ens_stack, itm);
+
+	// increment i so we don't keep the comment
+	i += str_len - 1;
       }
     } else if (file_s->buf[i] == '{') {
       new_file[new_file_i] = file_s->buf[i]; // add byte to the new file
       new_file_i += 1;
       
       // check if we have assert statements to dump
-      while (!s_empty(stack)) {
+      while (!s_empty(req_stack)) {
 	// add newline
 	new_file[new_file_i] = '\n';
 	new_file_i += 1; // maybe it would be nice to make this a .h?
@@ -133,7 +145,7 @@ void preprocess_contracts(File_s *file_s)
 	new_file_i += strlen("assert(");
 
 	// statement
-	char *itm = pop(stack);
+	char *itm = pop(req_stack);
 	strncpy(new_file+new_file_i, itm, strlen(itm));
 	new_file_i += strlen(itm);
 
@@ -141,6 +153,29 @@ void preprocess_contracts(File_s *file_s)
 	new_file_i += 2;
 	free(itm);
       }
+    } else if (file_s->buf[i] == '}') {
+      while (!s_empty(ens_stack)) {
+	// add the assert statement
+	strncpy(new_file+new_file_i, "assert(", strlen("assert("));
+	new_file_i += strlen("assert(");
+
+	// statement
+	char *itm = pop(ens_stack);
+	strncpy(new_file+new_file_i, itm, strlen(itm));
+	new_file_i += strlen(itm);
+
+	strncpy(new_file+new_file_i, ");", 2);
+	new_file_i += 2;
+
+	new_file[new_file_i] = '\n';
+	new_file_i += 1; // maybe it would be nice to make this a .h?
+
+	free(itm);
+      }
+      
+      // add the byte at the end of the file!
+      new_file[new_file_i] = file_s->buf[i];
+      new_file_i += 1; // TODO this should def be a abstraction
     } else {
       new_file[new_file_i] = file_s->buf[i]; // add byte to the new file
       new_file_i += 1;
@@ -157,7 +192,8 @@ void preprocess_contracts(File_s *file_s)
     close(fd);
   }
   // change the file perms!
-  free_stack(stack);
+  free_stack(req_stack);
+  free_stack(ens_stack);
   free(new_file);
 }
 
