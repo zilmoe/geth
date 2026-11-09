@@ -53,7 +53,7 @@ make build
 
 ## Small roadmap :)
 - [x] `\\@requires` (preconditions)
-- [ ] `\\@ensures` (postconditions)
+- [x] `\\@ensures` (postconditions)
 - [ ] `\\@loop_invariant`
 
 ## Why comments?
